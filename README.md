@@ -139,3 +139,50 @@ When demonstrating to your faculty or examiner:
 6. **Option 5:** Vacate `STU101` from `R101`. Show that room status resets to `Available`.
 7. **Option 6:** Show Allocation Details & Audit logs.
 8. **Option 7:** Show Member 1 Integration contract.
+
+---
+
+## 🤝 7. Student & Room Module Integration Guide (Member 1 & Member 2)
+
+This section establishes the official integration contract between **Member 1 (Student Management Module)** and **Member 2 (Room Management Module)** for the overall College Hostel Management System.
+
+### A. Division of Module Responsibilities
+
+| Responsibility Area | Student Management Module (Member 1) | Room Management Module (Member 2) |
+|---|---|---|
+| **Primary Domain** | Resident identity, contact, & academic profiles | Room inventory, bed capacities, & allocations |
+| **Data Owned** | Student Name, Age, Gender, Phone, Email, Course | Room ID, Room Number, Capacity, Rent, Room Status |
+| **Entity State** | Active, Updated, Removed from hostel records | Available, Occupied, Under Maintenance |
+| **Module Boundary** | Does not manage room or bed numbers | Does not store or manage personal student details |
+
+### B. Common Integration Anchor: `studentId`
+- Both modules use `studentId` (e.g., `"STU101"`, `"STU102"`) as the universal foreign key / identifier.
+- **Single Source of Truth:** Member 1 issues and validates genuine student IDs during registration. Member 2 stores only the `studentId` inside `allocatedStudents` in `Room.java` and `RoomAllocation.java`, ensuring zero data duplication across modules.
+
+### C. Expected End-to-End Integration Workflow
+```
+[Student Registration]          [Room Allocation]               [Room De-allocation]
+   (Member 1)                      (Member 2)                      (Member 2)
+       │                               │                               │
+       ▼                               ▼                               ▼
+Student registers ──────> Validates studentId ────> Student checks out
+with unique STU ID        via StudentService        from hostel room
+                          & allocates bed (R101)    & frees bed capacity
+```
+
+1. **Step 1 (Registration):** Resident registers through Member 1's Student Module; a verified `studentId` (e.g., `STU101`) is issued.
+2. **Step 2 (Pre-allocation Validation):** When a resident requests a room, Member 2's module references the `studentId`. Currently, during independent testing, Member 2 utilizes `StudentIntegrationHelper.isValidStudentId(studentId)`. In full system deployment, this hooks directly into Member 1's `StudentService.existsById(studentId)`.
+3. **Step 3 (Room Allocation):** Member 2's `RoomManager.allocateRoom(roomId, studentId)` assigns the student, checks room capacity, prevents duplicate hostel allocation via `HashSet`, and marks the bed as occupied.
+4. **Step 4 (Vacating / Checkout):** When a resident leaves, Member 2's `RoomManager.vacateRoom(roomId, studentId)` removes the `studentId` and restores room status to `AVAILABLE`.
+
+### D. Important Validation Considerations
+- **Non-Existent Student Prevention:** Room allocations must reject unregistered IDs before allocating beds.
+- **Duplicate Allocation Guard:** Member 2's `DuplicateAllocationException` ensures one student cannot hold beds in multiple rooms simultaneously.
+- **Capacity Overflow Guard:** Member 2's `RoomFullException` ensures room capacity limits (Single=1, Double=2, Triple=3) are strictly respected.
+- **Referential Integrity on Student Deletion:** If Member 1 deletes a student record, Member 2's `vacateRoom` must be invoked to release the occupied bed.
+
+### E. Unified System Collaboration
+When both independent modules are combined into the unified Hostel Management System:
+- Member 1's `StudentService` and Member 2's `RoomService` operate side-by-side.
+- The shared console menu allows staff to register a student, view available rooms, and immediately allocate that student's ID to a selected room with end-to-end consistency.
+
