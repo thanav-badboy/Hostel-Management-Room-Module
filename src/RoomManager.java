@@ -66,20 +66,40 @@ public class RoomManager implements RoomService {
         roomMap.put(room.getRoomId(), room);
     }
 
-    // Remaining methods stubbed for subsequent implementation...
+    // ==================== FEATURE 2: VIEW ROOMS ====================
+
     @Override
     public List<Room> getAllRooms() {
-        return Collections.unmodifiableList(roomList);
+        // Return a copy sorted by room number using manual Merge Sort
+        List<Room> sortedList = new ArrayList<>(roomList);
+        RoomSortAndSearch.mergeSortByRoomNumber(sortedList);
+        return sortedList;
     }
 
     @Override
     public List<Room> getAvailableRooms() {
-        return Collections.emptyList();
+        List<Room> availableList = new ArrayList<>();
+        for (Room room : roomList) {
+            if (room.isAvailable()) {
+                availableList.add(room);
+            }
+        }
+        // Sort using manual Merge Sort
+        RoomSortAndSearch.mergeSortByRoomNumber(availableList);
+        return availableList;
     }
 
     @Override
     public List<Room> getOccupiedRooms() {
-        return Collections.emptyList();
+        List<Room> occupiedList = new ArrayList<>();
+        for (Room room : roomList) {
+            if (room.getStatus() == RoomStatus.OCCUPIED) {
+                occupiedList.add(room);
+            }
+        }
+        // Sort using manual Merge Sort
+        RoomSortAndSearch.mergeSortByRoomNumber(occupiedList);
+        return occupiedList;
     }
 
     @Override
