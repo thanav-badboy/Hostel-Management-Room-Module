@@ -139,29 +139,100 @@ public class RoomManager implements RoomService {
         return found;
     }
 
+    // ==================== FEATURE 4: ALLOCATE ROOM ====================
+
     @Override
     public boolean allocateRoom(String roomId, String studentId)
             throws RoomNotFoundException, RoomFullException, DuplicateAllocationException {
-        return false;
+
+        if (studentId == null || studentId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Student ID cannot be null or empty.");
+        }
+
+        String normalizedStudentId = studentId.trim().toUpperCase();
+
+        // 1. Prevent duplicate allocation across the entire hostel (O(1) HashSet check)
+        if (activeAllocatedStudents.contains(normalizedStudentId)) {
+            throw new DuplicateAllocationException("Student '" + normalizedStudentId 
+                    + "' already has an active room allocation in the hostel!");
+        }
+
+        // 2. Locate room (throws RoomNotFoundException if absent)
+        Room room = searchByRoomId(roomId);
+
+        // 3. Check capacity (throws RoomFullException if at capacity)
+        if (!room.isAvailable()) {
+            throw new RoomFullException("Room " + room.getRoomId() + " (No. " + room.getRoomNumber() 
+                    + ") is already at full capacity (" + room.getCapacity() + " beds).");
+        }
+
+        // 4. Perform room-level allocation
+        boolean success = room.allocateStudent(normalizedStudentId);
+
+        if (success) {
+            // Track in HashSet and history
+            activeAllocatedStudents.add(normalizedStudentId);
+            RoomAllocation record = new RoomAllocation(room.getRoomId(), normalizedStudentId);
+            allocationHistory.add(record);
+        }
+
+        return success;
     }
+
+    // ==================== FEATURE 5: VACATE ROOM ====================
 
     @Override
     public boolean vacateRoom(String roomId, String studentId) throws RoomNotFoundException {
-        return false;
-    }
+        if (studentId == null || studentId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Student ID cannot be null or empty.");
+        }
 
-    @Override
-    public List<RoomAllocation> getAllAllocations() {
-        return Collections.emptyList();
-    }
+        String normalizedStudentId = studentId.trim().toUpperCase();
 
-    @Override
-    public List<String> getStudentsInRoom(String roomId) throws RoomNotFoundException {
-        return Collections.emptyList();
+        // 1. Locate room
+        Room room = searchByRoomId(roomId);
+
+        // 2. Remove student from room
+        boolean removed = room.vacateStudent(normalizedStudentId);
+        if (!removed) {
+            throw new IllegalArgumentException("Student '" + normalizedStudentId 
+                    + "' is not currently allocated to Room '" + room.getRoomId() + "'.");
+        }
+
+        // 3. Remove from active allocation tracker
+        activeAllocatedStudents.remove(normalizedStudentId);
+
+        // 4. Update status in allocation history
+        for (RoomAllocation allocation : allocationHistory) {
+            if (allocation.isActive() 
+                    && allocation.getRoomId().equalsIgnoreCase(room.getRoomId()) 
+                    && allocation.getStudentId().equalsIgnoreCase(normalizedStudentId)) {
+                allocation.setActive(false);
+                break;
+            }
+        }
+
+        return true;
     }
 
     @Override
     public boolean isStudentAllocated(String studentId) {
-        return false;
+        if (studentId == null || studentId.trim().isEmpty()) {
+            return false;
+        }
+        return activeAllocatedStudents.contains(studentId.trim().toUpperCase());
+    }
+
+    // ==================== FEATURE 6: ROOM ALLOCATION DETAILS ====================
+
+    @Override
+    public List<RoomAllocation> getAllAllocations() {
+        return Collections.unmodifiableList(allocationHistory);
+    }
+
+    @Override
+    public List<String> getStudentsInRoom(String roomId) throws RoomNotFoundException {
+        Room room = searchByRoomId(roomId);
+        return room.getAllocatedStudents();
     }
 }
