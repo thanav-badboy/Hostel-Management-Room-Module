@@ -102,14 +102,41 @@ public class RoomManager implements RoomService {
         return occupiedList;
     }
 
+    // ==================== FEATURE 3: CHECK ROOM AVAILABILITY ====================
+
+    /**
+     * Search room by Room ID using HashMap lookup (O(1) time complexity).
+     */
     @Override
     public Room searchByRoomId(String roomId) throws RoomNotFoundException {
-        return null;
+        if (roomId == null || roomId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Room ID cannot be empty.");
+        }
+        Room room = roomMap.get(roomId.trim().toUpperCase());
+        if (room == null) {
+            throw new RoomNotFoundException("Room with ID '" + roomId + "' not found in the system.");
+        }
+        return room;
     }
 
+    /**
+     * Search room by Room Number using manual Binary Search (O(log n) time complexity).
+     */
     @Override
     public Room searchByRoomNumber(int roomNumber) throws RoomNotFoundException {
-        return null;
+        if (roomNumber <= 0) {
+            throw new IllegalArgumentException("Room number must be positive.");
+        }
+        // Prepare sorted list for binary search
+        List<Room> sortedList = new ArrayList<>(roomList);
+        RoomSortAndSearch.mergeSortByRoomNumber(sortedList);
+
+        // Perform manual Binary Search
+        Room found = RoomSortAndSearch.binarySearchByRoomNumber(sortedList, roomNumber);
+        if (found == null) {
+            throw new RoomNotFoundException("Room with Number " + roomNumber + " not found in the system.");
+        }
+        return found;
     }
 
     @Override
